@@ -1,3 +1,3 @@
 # Sistema bancario em Python
 
-## Desafio do curso Backend com Python da DIO
+## Desafio do bootcamp Python AI Backend Developer da DIO
