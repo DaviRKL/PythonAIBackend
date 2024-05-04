@@ -46,7 +46,7 @@ def exibir_conta(num_conta):
             print(conta_corrente)
        
 def criar_conta_corrente(agencia, num_conta, usuario):
-    conta_corrente.pop("cpf", {}) 
+    conta_corrente.pop("num_conta", {}) 
     conta_corrente.update({num_conta: {"agencia": agencia, "usuario": usuario}})
     print(f"Conta criada com sucesso! Seu numero da conta é {num_conta} ")
            
