@@ -1,8 +1,10 @@
 # Sistema bancário em Python
 
-![Sistema bancário em Python](https://info4fun.com.br/wp-content/uploads/2024/04/CodingTheFutureVivoPythonAI-360x270.webp)
+
 
 Este é um projeto desenvolvido como parte do Desafio do bootcamp Python AI Backend Developer da DIO.
+
+![Sistema bancário em Python](https://info4fun.com.br/wp-content/uploads/2024/04/CodingTheFutureVivoPythonAI-360x270.webp)
 
 ## Descrição
 
