@@ -33,6 +33,10 @@ class Cliente:
         self.indice_conta = 0
 
     def realizar_transacao(self, conta, transacao):
+        if len(conta.historico.transacoes_do_dia()) >= 2:
+            print("\n@@@ Você excedeu o número de transações permitidas para hoje! @@@")
+            return
+
         transacao.registrar(conta)
 
     def adicionar_conta(self, conta):
@@ -88,8 +92,7 @@ class Conta:
 
         elif valor > 0:
             self._saldo -= valor
-            print(f"\n=== Saque de R${valor} realizado com sucesso!  ===")
-            print(f"\nSaldo atual: {self.saldo}")
+            print("\n=== Saque realizado com sucesso! ===")
             return True
 
         else:
@@ -100,7 +103,7 @@ class Conta:
     def depositar(self, valor):
         if valor > 0:
             self._saldo += valor
-            print(f"\n=== Depósito de {self.saldo}  realizado com sucesso! ===")
+            print("\n=== Depósito realizado com sucesso! ===")
         else:
             print("\n@@@ Operação falhou! O valor informado é inválido. @@@")
             return False
@@ -114,9 +117,17 @@ class ContaCorrente(Conta):
         self._limite = limite
         self._limite_saques = limite_saques
 
+    @classmethod
+    def nova_conta(cls, cliente, numero, limite, limite_saques):
+        return cls(numero, cliente, limite, limite_saques)
+
     def sacar(self, valor):
         numero_saques = len(
-            [transacao for transacao in self.historico.transacoes if transacao["tipo"] == Saque.__name__]
+            [
+                transacao
+                for transacao in self.historico.transacoes
+                if transacao["tipo"] == Saque.__name__
+            ]
         )
 
         excedeu_limite = valor > self._limite
@@ -154,14 +165,28 @@ class Historico:
             {
                 "tipo": transacao.__class__.__name__,
                 "valor": transacao.valor,
-                "data": datetime.now(),
+                "data": datetime.utcnow().strftime("%d-%m-%Y %H:%M:%S"),
             }
         )
 
     def gerar_relatorio(self, tipo_transacao=None):
         for transacao in self._transacoes:
-            if tipo_transacao is None or transacao["tipo"].lower() == tipo_transacao.lower():
+            if (
+                tipo_transacao is None
+                or transacao["tipo"].lower() == tipo_transacao.lower()
+            ):
                 yield transacao
+
+    def transacoes_do_dia(self):
+        data_atual = datetime.utcnow().date()
+        transacoes = []
+        for transacao in self._transacoes:
+            data_transacao = datetime.strptime(
+                transacao["data"], "%d-%m-%Y %H:%M:%S"
+            ).date()
+            if data_atual == data_transacao:
+                transacoes.append(transacao)
+        return transacoes
 
 
 class Transacao(ABC):
@@ -206,10 +231,12 @@ class Deposito(Transacao):
 
 
 def log_transacao(func):
-    def wrapper(*args, **kwargs):
-        func(*args, **kwargs)
-        return print(f"Função: {func.__name__.upper()} || Data e hora de execução: {datetime.now()}")
-    return wrapper
+    def envelope(*args, **kwargs):
+        resultado = func(*args, **kwargs)
+        print(f"{datetime.now()}: {func.__name__.upper()}")
+        return resultado
+
+    return envelope
 
 
 def menu():
@@ -248,13 +275,13 @@ def depositar(clientes):
     if not cliente:
         print("\n@@@ Cliente não encontrado! @@@")
         return
-
-    valor = float(input("Informe o valor do depósito: "))
-    transacao = Deposito(valor)
-
+    
     conta = recuperar_conta_cliente(cliente)
     if not conta:
         return
+
+    valor = float(input("Informe o valor do depósito: "))
+    transacao = Deposito(valor)
 
     cliente.realizar_transacao(conta, transacao)
 
@@ -268,12 +295,12 @@ def sacar(clientes):
         print("\n@@@ Cliente não encontrado! @@@")
         return
 
-    valor = float(input("Informe o valor do saque: "))
-    transacao = Saque(valor)
-
     conta = recuperar_conta_cliente(cliente)
     if not conta:
         return
+    
+    valor = float(input("Informe o valor do saque: "))
+    transacao = Saque(valor)
 
     cliente.realizar_transacao(conta, transacao)
 
@@ -294,9 +321,9 @@ def exibir_extrato(clientes):
     print("\n================ EXTRATO ================")
     extrato = ""
     tem_transacao = False
-    for transacao in conta.historico.gerar_relatorio(tipo_transacao="saque"):
+    for transacao in conta.historico.gerar_relatorio():
         tem_transacao = True
-        extrato += f"\n{transacao['tipo']}:\n\tR$ {transacao['valor']:.2f}"
+        extrato += f"\n{transacao['data']}\n{transacao['tipo']}:\n\tR$ {transacao['valor']:.2f}"
 
     if not tem_transacao:
         extrato = "Não foram realizadas movimentações"
@@ -317,9 +344,13 @@ def criar_cliente(clientes):
 
     nome = input("Informe o nome completo: ")
     data_nascimento = input("Informe a data de nascimento (dd-mm-aaaa): ")
-    endereco = input("Informe o endereço (logradouro, nro - bairro - cidade/sigla estado): ")
+    endereco = input(
+        "Informe o endereço (logradouro, nro - bairro - cidade/sigla estado): "
+    )
 
-    cliente = PessoaFisica(nome=nome, data_nascimento=data_nascimento, cpf=cpf, endereco=endereco)
+    cliente = PessoaFisica(
+        nome=nome, data_nascimento=data_nascimento, cpf=cpf, endereco=endereco
+    )
 
     clientes.append(cliente)
 
@@ -335,7 +366,9 @@ def criar_conta(numero_conta, clientes, contas):
         print("\n@@@ Cliente não encontrado, fluxo de criação de conta encerrado! @@@")
         return
 
-    conta = ContaCorrente.nova_conta(cliente=cliente, numero=numero_conta)
+    conta = ContaCorrente.nova_conta(
+        cliente=cliente, numero=numero_conta, limite=500, limite_saques=50
+    )
     contas.append(conta)
     cliente.contas.append(conta)
 
@@ -378,7 +411,9 @@ def main():
             break
 
         else:
-            print("\n@@@ Operação inválida, por favor selecione novamente a operação desejada. @@@")
+            print(
+                "\n@@@ Operação inválida, por favor selecione novamente a operação desejada. @@@"
+            )
 
 
 main()
