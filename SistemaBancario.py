@@ -1,7 +1,9 @@
 import textwrap
 from abc import ABC, abstractclassmethod, abstractproperty
 from datetime import datetime
+from pathlib import Path
 
+ROOT_PATH = Path(__file__).parent
 
 class ContasIterador:
     def __init__(self, contas):
@@ -33,7 +35,7 @@ class Cliente:
         self.indice_conta = 0
 
     def realizar_transacao(self, conta, transacao):
-        if len(conta.historico.transacoes_do_dia()) >= 10:
+        if len(conta.historico.transacoes_do_dia()) >= 2:
             print("\n@@@ Você excedeu o número de transações permitidas para hoje! @@@")
             return
 
@@ -49,6 +51,9 @@ class PessoaFisica(Cliente):
         self.nome = nome
         self.data_nascimento = data_nascimento
         self.cpf = cpf
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__}: ('{self.cpf}')>"
 
 
 class Conta:
@@ -123,11 +128,7 @@ class ContaCorrente(Conta):
 
     def sacar(self, valor):
         numero_saques = len(
-            [
-                transacao
-                for transacao in self.historico.transacoes
-                if transacao["tipo"] == Saque.__name__
-            ]
+            [transacao for transacao in self.historico.transacoes if transacao["tipo"] == Saque.__name__]
         )
 
         excedeu_limite = valor > self._limite
@@ -143,6 +144,9 @@ class ContaCorrente(Conta):
             return super().sacar(valor)
 
         return False
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__}: ('{self.agencia}', '{self.numero}', '{self.cliente.nome}')>"
 
     def __str__(self):
         return f"""\
@@ -171,19 +175,14 @@ class Historico:
 
     def gerar_relatorio(self, tipo_transacao=None):
         for transacao in self._transacoes:
-            if (
-                tipo_transacao is None
-                or transacao["tipo"].lower() == tipo_transacao.lower()
-            ):
+            if tipo_transacao is None or transacao["tipo"].lower() == tipo_transacao.lower():
                 yield transacao
 
     def transacoes_do_dia(self):
         data_atual = datetime.utcnow().date()
         transacoes = []
         for transacao in self._transacoes:
-            data_transacao = datetime.strptime(
-                transacao["data"], "%d-%m-%Y %H:%M:%S"
-            ).date()
+            data_transacao = datetime.strptime(transacao["data"], "%d-%m-%Y %H:%M:%S").date()
             if data_atual == data_transacao:
                 transacoes.append(transacao)
         return transacoes
@@ -233,7 +232,16 @@ class Deposito(Transacao):
 def log_transacao(func):
     def envelope(*args, **kwargs):
         resultado = func(*args, **kwargs)
-        print(f"{datetime.now()}: {func.__name__.upper()}")
+        data_hora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # TODO: alterar a implementação para salvar em arquivo.
+        # f"[{data_hora}] Função '{func.__name__}' executada com argumentos {args} e {kwargs}. Retornou {result}\n"
+        try:
+            with open(ROOT_PATH / "log.txt", "a", encoding='utf-8') as arquivo_log:
+                arquivo_log.write(f"[{data_hora}] Função: {func.__name__.upper()} ")
+                arquivo_log.write(f"Executada com argumentos: {args} {kwargs}. ")
+                arquivo_log.write(f"E retornou: {resultado}\n")
+        except IOError as exc: 
+            print(f"Erro ao abrir arquivo {exc}")
         return resultado
 
     return envelope
@@ -275,13 +283,13 @@ def depositar(clientes):
     if not cliente:
         print("\n@@@ Cliente não encontrado! @@@")
         return
-    
-    conta = recuperar_conta_cliente(cliente)
-    if not conta:
-        return
 
     valor = float(input("Informe o valor do depósito: "))
     transacao = Deposito(valor)
+
+    conta = recuperar_conta_cliente(cliente)
+    if not conta:
+        return
 
     cliente.realizar_transacao(conta, transacao)
 
@@ -295,12 +303,12 @@ def sacar(clientes):
         print("\n@@@ Cliente não encontrado! @@@")
         return
 
+    valor = float(input("Informe o valor do saque: "))
+    transacao = Saque(valor)
+
     conta = recuperar_conta_cliente(cliente)
     if not conta:
         return
-    
-    valor = float(input("Informe o valor do saque: "))
-    transacao = Saque(valor)
 
     cliente.realizar_transacao(conta, transacao)
 
@@ -344,13 +352,9 @@ def criar_cliente(clientes):
 
     nome = input("Informe o nome completo: ")
     data_nascimento = input("Informe a data de nascimento (dd-mm-aaaa): ")
-    endereco = input(
-        "Informe o endereço (logradouro, nro - bairro - cidade/sigla estado): "
-    )
+    endereco = input("Informe o endereço (logradouro, nro - bairro - cidade/sigla estado): ")
 
-    cliente = PessoaFisica(
-        nome=nome, data_nascimento=data_nascimento, cpf=cpf, endereco=endereco
-    )
+    cliente = PessoaFisica(nome=nome, data_nascimento=data_nascimento, cpf=cpf, endereco=endereco)
 
     clientes.append(cliente)
 
@@ -366,9 +370,7 @@ def criar_conta(numero_conta, clientes, contas):
         print("\n@@@ Cliente não encontrado, fluxo de criação de conta encerrado! @@@")
         return
 
-    conta = ContaCorrente.nova_conta(
-        cliente=cliente, numero=numero_conta, limite=500, limite_saques=50
-    )
+    conta = ContaCorrente.nova_conta(cliente=cliente, numero=numero_conta, limite=500, limite_saques=50)
     contas.append(conta)
     cliente.contas.append(conta)
 
@@ -411,9 +413,7 @@ def main():
             break
 
         else:
-            print(
-                "\n@@@ Operação inválida, por favor selecione novamente a operação desejada. @@@"
-            )
+            print("\n@@@ Operação inválida, por favor selecione novamente a operação desejada. @@@")
 
 
 main()
