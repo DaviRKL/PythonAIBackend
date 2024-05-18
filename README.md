@@ -18,5 +18,6 @@ Este sistema bancário em Python oferece funcionalidades básicas para realizar 
 - Consulta de saldo
 - Consulta de extrato
 - Consulta de lista de clientes
+- Criação de arquivo .txt para registro de logs
 
 
