@@ -3,7 +3,10 @@ from abc import ABC, abstractclassmethod, abstractproperty
 from datetime import datetime
 from pathlib import Path
 
+import customtkinter
+
 ROOT_PATH = Path(__file__).parent
+
 
 class ContasIterador:
     def __init__(self, contas):
@@ -97,7 +100,7 @@ class Conta:
 
         elif valor > 0:
             self._saldo -= valor
-            print("\n=== Saque realizado com sucesso! ===")
+            print("\n Saque realizado com sucesso!")
             return True
 
         else:
@@ -108,7 +111,7 @@ class Conta:
     def depositar(self, valor):
         if valor > 0:
             self._saldo += valor
-            print("\n=== Depósito realizado com sucesso! ===")
+            print("\nDepósito realizado com sucesso!")
         else:
             print("\n@@@ Operação falhou! O valor informado é inválido. @@@")
             return False
@@ -128,7 +131,11 @@ class ContaCorrente(Conta):
 
     def sacar(self, valor):
         numero_saques = len(
-            [transacao for transacao in self.historico.transacoes if transacao["tipo"] == Saque.__name__]
+            [
+                transacao
+                for transacao in self.historico.transacoes
+                if transacao["tipo"] == Saque.__name__
+            ]
         )
 
         excedeu_limite = valor > self._limite
@@ -175,14 +182,19 @@ class Historico:
 
     def gerar_relatorio(self, tipo_transacao=None):
         for transacao in self._transacoes:
-            if tipo_transacao is None or transacao["tipo"].lower() == tipo_transacao.lower():
+            if (
+                tipo_transacao is None
+                or transacao["tipo"].lower() == tipo_transacao.lower()
+            ):
                 yield transacao
 
     def transacoes_do_dia(self):
         data_atual = datetime.utcnow().date()
         transacoes = []
         for transacao in self._transacoes:
-            data_transacao = datetime.strptime(transacao["data"], "%d-%m-%Y %H:%M:%S").date()
+            data_transacao = datetime.strptime(
+                transacao["data"], "%d-%m-%Y %H:%M:%S"
+            ).date()
             if data_atual == data_transacao:
                 transacoes.append(transacao)
         return transacoes
@@ -236,29 +248,22 @@ def log_transacao(func):
         # TODO: alterar a implementação para salvar em arquivo.
         # f"[{data_hora}] Função '{func.__name__}' executada com argumentos {args} e {kwargs}. Retornou {result}\n"
         try:
-            with open(ROOT_PATH / "log.txt", "a", encoding='utf-8') as arquivo_log:
+            with open(ROOT_PATH / "log.txt", "a", encoding="utf-8") as arquivo_log:
                 arquivo_log.write(f"[{data_hora}] Função: {func.__name__.upper()} ")
                 arquivo_log.write(f"Executada com argumentos: {args} {kwargs}. ")
                 arquivo_log.write(f"E retornou: {resultado}\n")
-        except IOError as exc: 
+        except IOError as exc:
             print(f"Erro ao abrir arquivo {exc}")
         return resultado
 
     return envelope
 
 
-def menu():
-    menu = """\n
-    ================ MENU ================
-    [d]\tDepositar
-    [s]\tSacar
-    [e]\tExtrato
-    [nc]\tNova conta
-    [lc]\tListar contas
-    [nu]\tNovo usuário
-    [q]\tSair
-    => """
-    return input(textwrap.dedent(menu))
+def pegar_cpf(janela, title):
+    cpf = customtkinter.CTkInputDialog(
+        text="Informe o CPF do cliente:", title=title
+    ).get_input()
+    return cpf
 
 
 def filtrar_cliente(cpf, clientes):
@@ -276,15 +281,23 @@ def recuperar_conta_cliente(cliente):
 
 
 @log_transacao
-def depositar(clientes):
-    cpf = input("Informe o CPF do cliente: ")
+def depositar(clientes, janela):
+    cpf = pegar_cpf(janela, "Depositar")
     cliente = filtrar_cliente(cpf, clientes)
 
     if not cliente:
-        print("\n@@@ Cliente não encontrado! @@@")
+        mensagem = customtkinter.CTkLabel(
+            janela, text="\n@@@ Cliente não encontrado! @@@", text_color="red"
+        )
+        mensagem.pack(pady=10)
+        janela.after(3000, mensagem.destroy)
         return
 
-    valor = float(input("Informe o valor do depósito: "))
+    valor = float(
+        customtkinter.CTkInputDialog(
+            text="Informe o valor do Depósito", title="Valor do Depósito"
+        ).get_input()
+    )
     transacao = Deposito(valor)
 
     conta = recuperar_conta_cliente(cliente)
@@ -293,17 +306,32 @@ def depositar(clientes):
 
     cliente.realizar_transacao(conta, transacao)
 
+    mensagem = customtkinter.CTkLabel(
+        janela, text="\nDepósito realizado com sucesso!", text_color="green"
+    )
+    mensagem.pack(pady=10)
+    janela.after(3000, mensagem.destroy)
+
 
 @log_transacao
-def sacar(clientes):
-    cpf = input("Informe o CPF do cliente: ")
+def sacar(clientes, janela):
+    cpf = pegar_cpf(janela, "Sacar")
     cliente = filtrar_cliente(cpf, clientes)
 
     if not cliente:
-        print("\n@@@ Cliente não encontrado! @@@")
+        mensagem = customtkinter.CTkLabel(
+            janela, text="\n@@@ Cliente não encontrado! @@@", text_color="red"
+        )
+        mensagem.pack(pady=10)
+        janela.after(3000, mensagem.destroy)
         return
 
-    valor = float(input("Informe o valor do saque: "))
+    valor = float(
+        customtkinter.CTkInputDialog(
+            text="Informe o valor do Saque", title="Valor do Saque"
+        ).get_input()
+    )
+
     transacao = Saque(valor)
 
     conta = recuperar_conta_cliente(cliente)
@@ -312,108 +340,166 @@ def sacar(clientes):
 
     cliente.realizar_transacao(conta, transacao)
 
+    mensagem = customtkinter.CTkLabel(
+        janela, text="\n Saque realizado com sucesso!", text_color="green"
+    )
+    mensagem.pack(pady=10)
+    janela.after(3000, mensagem.destroy)
+
 
 @log_transacao
-def exibir_extrato(clientes):
-    cpf = input("Informe o CPF do cliente: ")
+def exibir_extrato(clientes, janela):
+    cpf = pegar_cpf(janela, "Criar cliente")
     cliente = filtrar_cliente(cpf, clientes)
 
     if not cliente:
-        print("\n@@@ Cliente não encontrado! @@@")
+        mensagem = customtkinter.CTkLabel(
+            janela, text="\n@@@ Cliente não encontrado! @@@", text_color="red"
+        )
+        mensagem.pack(pady=10)
+        janela.after(3000, mensagem.destroy)
         return
 
     conta = recuperar_conta_cliente(cliente)
     if not conta:
         return
 
-    print("\n================ EXTRATO ================")
-    extrato = ""
+    extrato = "\n================ EXTRATO ================"
+
     tem_transacao = False
     for transacao in conta.historico.gerar_relatorio():
         tem_transacao = True
         extrato += f"\n{transacao['data']}\n{transacao['tipo']}:\n\tR$ {transacao['valor']:.2f}"
-
+        cor = "green"
     if not tem_transacao:
-        extrato = "Não foram realizadas movimentações"
+        extrato += "\nNão foram realizadas movimentações"
+        cor = "red"
+    extrato += f"\n\nSaldo:\n\tR$ {conta.saldo:.2f}\n=========================================="
 
-    print(extrato)
-    print(f"\nSaldo:\n\tR$ {conta.saldo:.2f}")
-    print("==========================================")
+    mensagem = customtkinter.CTkLabel(janela, text=extrato, text_color=cor)
+    mensagem.pack(pady=10)
 
 
 @log_transacao
-def criar_cliente(clientes):
-    cpf = input("Informe o CPF (somente número): ")
+def criar_cliente(clientes, janela):
+
+    cpf = pegar_cpf(janela, "Criar cliente")
     cliente = filtrar_cliente(cpf, clientes)
 
     if cliente:
-        print("\n@@@ Já existe cliente com esse CPF! @@@")
+        mensagem = customtkinter.CTkLabel(
+            janela, text="\n@@@ Já existe cliente com esse CPF! @@@", text_color="red"
+        )
+        mensagem.pack(pady=10)
+        janela.after(5000, mensagem.destroy)
         return
 
-    nome = input("Informe o nome completo: ")
-    data_nascimento = input("Informe a data de nascimento (dd-mm-aaaa): ")
-    endereco = input("Informe o endereço (logradouro, nro - bairro - cidade/sigla estado): ")
+    nome = customtkinter.CTkInputDialog(
+        text="Informe o nome completo:", title="Nova Conta"
+    ).get_input()
+    data_nascimento = customtkinter.CTkInputDialog(
+        text="Informe a data de nascimento (dd-mm-aaaa):", title="Nova Conta"
+    ).get_input()
+    endereco = customtkinter.CTkInputDialog(
+        text="Informe o endereço (logradouro, nro - bairro - cidade/sigla estado):",
+        title="Nova Conta",
+    ).get_input()
 
-    cliente = PessoaFisica(nome=nome, data_nascimento=data_nascimento, cpf=cpf, endereco=endereco)
+    cliente = PessoaFisica(
+        nome=nome, data_nascimento=data_nascimento, cpf=cpf, endereco=endereco
+    )
 
     clientes.append(cliente)
 
-    print("\n=== Cliente criado com sucesso! ===")
+    mensagem = customtkinter.CTkLabel(
+        janela, text="\n Cliente criado com sucesso!", text_color="green"
+    )
+    mensagem.pack(pady=10)
+    janela.after(3000, mensagem.destroy)
 
 
 @log_transacao
-def criar_conta(numero_conta, clientes, contas):
-    cpf = input("Informe o CPF do cliente: ")
+def criar_conta(numero_conta, clientes, contas, janela):
+    cpf = pegar_cpf(janela, "Criar conta")
     cliente = filtrar_cliente(cpf, clientes)
 
     if not cliente:
-        print("\n@@@ Cliente não encontrado, fluxo de criação de conta encerrado! @@@")
+        mensagem = customtkinter.CTkLabel(
+            janela,
+            text="\n@@@ Cliente não encontrado, fluxo de criação de conta encerrado! @@@",
+            text_color="red",
+        )
+        mensagem.pack(pady=10)
+        janela.after(3000, mensagem.destroy)
         return
 
-    conta = ContaCorrente.nova_conta(cliente=cliente, numero=numero_conta, limite=500, limite_saques=50)
+    conta = ContaCorrente.nova_conta(
+        cliente=cliente, numero=numero_conta, limite=500, limite_saques=50
+    )
     contas.append(conta)
     cliente.contas.append(conta)
 
-    print("\n=== Conta criada com sucesso! ===")
+    mensagem = customtkinter.CTkLabel(
+        janela, text="\nConta criada com sucesso!", text_color="green"
+    )
+    mensagem.pack(pady=10)
+    janela.after(3000, mensagem.destroy)
 
 
-def listar_contas(contas):
+def listar_contas(contas, janela):
     for conta in ContasIterador(contas):
-        print("=" * 100)
-        print(textwrap.dedent(str(conta)))
+        conta_info = str(conta).strip()
+        conta_info = textwrap.dedent(conta_info)
+        mensagem = customtkinter.CTkLabel(
+            janela, text=f"\n{conta_info}", text_color="green"
+        )
+        mensagem.pack(pady=10)
 
 
 def main():
     clientes = []
     contas = []
 
-    while True:
-        opcao = menu()
-
-        if opcao == "d":
-            depositar(clientes)
-
-        elif opcao == "s":
-            sacar(clientes)
-
-        elif opcao == "e":
-            exibir_extrato(clientes)
-
-        elif opcao == "nu":
-            criar_cliente(clientes)
-
-        elif opcao == "nc":
+    def selecionar_operacao(opcao):
+        if opcao == "Novo Usuário":
+            criar_cliente(clientes, janela)
+        elif opcao == "Nova Conta":
             numero_conta = len(contas) + 1
-            criar_conta(numero_conta, clientes, contas)
+            criar_conta(numero_conta, clientes, contas, janela)
+        elif opcao == "Depositar":
+            depositar(clientes, janela)
+        elif opcao == "Sacar":
+            sacar(clientes, janela)
+        elif opcao == "Extrato":
+            exibir_extrato(clientes, janela)
+        elif opcao == "Listar contas":
+            listar_contas(contas, janela)
 
-        elif opcao == "lc":
-            listar_contas(contas)
+    customtkinter.set_appearance_mode("dark")
+    customtkinter.set_default_color_theme("dark-blue")
 
-        elif opcao == "q":
-            break
+    janela = customtkinter.CTk()
+    janela.title("Sistema Bancário - Davi Ryan Konuma Lima")
+    janela.geometry("500x500x")
 
-        else:
-            print("\n@@@ Operação inválida, por favor selecione novamente a operação desejada. @@@")
+    titulo = customtkinter.CTkLabel(janela, text="Seja bem vindo ao Sistema bancário!")
+    texto_selecionar = customtkinter.CTkLabel(janela, text="Selecione a opção desejada")
+    operacao_selecionada = customtkinter.CTkOptionMenu(
+        janela,
+        values=[
+            "Novo Usuário",
+            "Nova Conta",
+            "Depositar",
+            "Sacar",
+            "Extrato",
+            "Listar contas",
+        ],
+        command=selecionar_operacao,
+    )
+    titulo.pack(padx=10, pady=10)
+    texto_selecionar.pack(padx=10, pady=10)
+    operacao_selecionada.pack(padx=10, pady=10)
+    janela.mainloop()
 
 
 main()
