@@ -8,10 +8,10 @@ Este é um projeto desenvolvido como parte do Desafio do bootcamp Python AI Back
 
 ## Descrição
 
-Este sistema bancário em Python oferece funcionalidades básicas para realizar transações financeiras e consultar saldo, consultar extrato, criar usuario e listar contas.
+Este sistema bancário em Python oferece funcionalidades básicas como transações financeiras e consulta de saldo e extrato, além da criação de usuários e contas.
 
 ## Funcionalidades
-
+- Interface visual com CustomTKInter
 - Criação de contas bancárias
 - Depósito e saque de dinheiro
 - Criação de usuário
